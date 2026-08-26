@@ -1570,6 +1570,31 @@ textarea.form-control {
     box-shadow: var(--shadow-lg);
 }
 
+.btn-submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.form-error {
+    display: none;
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin: 0 0 0.75rem;
+    font-family: inherit;
+}
+
+.form-error.show {
+    display: block;
+}
+
+.hp-field {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
 .success-message {
     text-align: center;
     padding: 3rem 0;

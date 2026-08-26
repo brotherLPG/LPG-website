@@ -103,19 +103,122 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Contact Form ---
   const contactForm = document.getElementById('contactForm');
-  const contactFormBox = document.getElementById('contactFormBox');
   const successMessage = document.getElementById('successMessage');
   const btnResetForm = document.getElementById('btnResetForm');
+  const formError = document.getElementById('formError');
+  const INQUIRY_EMAIL = 'info@brotherlpg.com';
+
+  function showFormError(message) {
+    if (!formError) return;
+    formError.textContent = message;
+    formError.classList.add('show');
+  }
+
+  async function readJson(response) {
+    try {
+      return await response.json();
+    } catch (err) {
+      return {};
+    }
+  }
+
+  async function sendViaPhp(form) {
+    const response = await fetch('send-mail.php', {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      body: new FormData(form)
+    });
+    const data = await readJson(response);
+    return Boolean(response.ok && data.ok);
+  }
+
+  async function sendViaFormSubmit(form) {
+    const payload = {
+      name: form.name.value.trim(),
+      phone: form.phone.value.trim(),
+      email: form.email.value.trim() || '(not provided)',
+      service: form.service.value.trim() || '(not selected)',
+      message: form.message.value.trim(),
+      _subject: 'Brother LPG website inquiry',
+      _template: 'table',
+      _captcha: 'false',
+      _honey: form.company ? form.company.value : ''
+    };
+
+    const response = await fetch('https://formsubmit.co/ajax/' + INQUIRY_EMAIL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await readJson(response);
+    const ok = data.success === true || data.success === 'true';
+    if (!ok) {
+      const raw = String(data.message || '');
+      if (/activat/i.test(raw)) {
+        throw new Error('Check info@brotherlpg.com Inbox and Spam. Open the FormSubmit email and click Activate Form, then send this inquiry again.');
+      }
+      throw new Error(raw || 'Could not send your message. Please try again.');
+    }
+  }
 
   if (contactForm) {
-    contactForm.addEventListener('submit', (e) => {
-      setTimeout(() => { contactForm.classList.add('hidden'); successMessage.classList.add('show'); }, 500);
+    contactForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (formError) {
+        formError.textContent = '';
+        formError.classList.remove('show');
+      }
+
+      const submitBtn = contactForm.querySelector('.btn-submit');
+      const originalLabel = submitBtn ? submitBtn.textContent : 'Send Inquiry';
+
+      if (window.location.protocol === 'file:') {
+        showFormError('Do not open index.html from a folder. In Chrome open this address instead: http://127.0.0.1:8765/index.html  (or your live Hostinger website).');
+        return;
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+      }
+
+      try {
+        let sent = false;
+        try {
+          sent = await sendViaPhp(contactForm);
+        } catch (phpErr) {
+          sent = false;
+        }
+
+        if (!sent) {
+          await sendViaFormSubmit(contactForm);
+        }
+
+        contactForm.reset();
+        contactForm.classList.add('hidden');
+        if (successMessage) successMessage.classList.add('show');
+      } catch (err) {
+        showFormError((err && err.message) || 'Could not send your message. Please call +92-311-1182822 or email info@brotherlpg.com.');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalLabel;
+        }
+      }
     });
   }
 
   if (btnResetForm) {
     btnResetForm.addEventListener('click', () => {
       contactForm.reset();
+      if (formError) {
+        formError.textContent = '';
+        formError.classList.remove('show');
+      }
       successMessage.classList.remove('show');
       contactForm.classList.remove('hidden');
     });
